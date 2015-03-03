@@ -21,16 +21,8 @@ typedef unsigned long long DataLength;
 
 typedef unsigned int uint32_t; /* must be exactly 32 bits */
 
-
-#if __CUDA_ARCH__ >= 500
-	#define ROTATEUPWARDS7(a) (SPH_ROTL32(a, 7))
-	#define ROTATEUPWARDS11(a) (SPH_ROTL32(a, 11))
-#else
-	#define ROTATEUPWARDS7(a) (((a) << 7) | ((a) >> 25))
-	#define ROTATEUPWARDS11(a) (((a) << 11) | ((a) >> 21))
-#endif
-
-
+#define ROTATEUPWARDS7(a) (((a) << 7) | ((a) >> 25))
+#define ROTATEUPWARDS11(a) (((a) << 11) | ((a) >> 21))
 #define SWAP(a,b) { uint32_t u = a; a = b; b = u; }
 
 __constant__ uint32_t c_IV_512[32];
@@ -314,6 +306,8 @@ __host__ void x11_cubehash512_cpu_hash_64(int thr_id, int threads, uint32_t star
 
     // Größe des dynamischen Shared Memory Bereichs
     size_t shared_size = 0;
+
+//    fprintf(stderr, "threads=%d, %d blocks, %d threads per block, %d bytes shared\n", threads, grid.x, block.x, shared_size);
 
     x11_cubehash512_gpu_hash_64<<<grid, block, shared_size>>>(threads, startNounce, (uint64_t*)d_hash, d_nonceVector);
     MyStreamSynchronize(NULL, order, thr_id);

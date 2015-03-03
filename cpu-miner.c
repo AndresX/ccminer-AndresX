@@ -55,7 +55,6 @@ extern "C"
 {
 #endif
 int cuda_num_devices();
-void cuda_devicenames();
 int cuda_finddevice(char *name);
 #ifdef __cplusplus
 }
@@ -127,18 +126,8 @@ typedef enum {
 	ALGO_FUGUE256,		/* Fugue256 */
 	ALGO_GROESTL,
 	ALGO_MYR_GR,
-	ALGO_JACKPOT,
-	ALGO_QUARK,
-	ALGO_ANIME,
-	ALGO_QUBIT,
-	ALGO_FRESH,
 	ALGO_NIST5,
-	ALGO_X11,
-	ALGO_X13,
-	ALGO_X14,
-	ALGO_X15,
-	ALGO_WHIRLCOIN,
-	ALGO_DMD_GR,
+	ALGO_X11
 } sha256_algos;
 
 static const char *algo_names[] = {
@@ -147,18 +136,8 @@ static const char *algo_names[] = {
 	"fugue256",
 	"groestl",
 	"myr-gr",
-	"jackpot",
-	"quark",
-	"anime",
-	"qubit",
-	"fresh",
 	"nist5",
-	"x11",
-	"x13",
-	"x14",
-	"x15",
-	"whirlcoin",
-	"dmd-gr",
+	"x11"
 };
 
 bool opt_debug = false;
@@ -185,7 +164,6 @@ bool opt_trust_pool = false;
 uint16_t opt_vote = 9999;
 static int num_processors;
 int device_map[8] = {0,1,2,3,4,5,6,7}; // CB
-char *device_name[8]; // CB
 static char *rpc_url;
 static char *rpc_userpass;
 static char *rpc_user, *rpc_pass;
@@ -226,18 +204,8 @@ Options:\n\
                         mjollnir  Mjollnircoin hash\n\
                         groestl   Groestlcoin hash\n\
                         myr-gr    Myriad-Groestl hash\n\
-                        jackpot   Jackpot hash\n\
-                        quark     Quark hash\n\
-                        anime     Animecoin hash\n\
-						qubit     qubitcoin hash\n\
-						fresh     freshcoin hash\n\
                         nist5     NIST5 (TalkCoin) hash\n\
                         x11       X11 (DarkCoin) hash\n\
-                        x13       X13 (MaruCoin) hash\n\
-						x14       X14 (MoronCoin) hash\n\
-						x15       X15 (BitBlock) hash\n\
-						whirlcoin   whirlcoin hash\n\
-                        dmd-gr    Diamond-Groestl hash\n\
   -d, --devices         takes a comma separated list of CUDA devices to use.\n\
                         Device IDs start counting from 0! Alternatively takes\n\
                         string names of your cards like gtx780ti or gt640#2\n\
@@ -729,7 +697,7 @@ static void stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 	if (opt_algo == ALGO_HEAVY || opt_algo == ALGO_MJOLLNIR)
 		heavycoin_hash(merkle_root, sctx->job.coinbase, (int)sctx->job.coinbase_size);
 	else
-	if (opt_algo == ALGO_FUGUE256 || opt_algo == ALGO_GROESTL || opt_algo ==  ALGO_WHIRLCOIN)
+	if (opt_algo == ALGO_FUGUE256 || opt_algo == ALGO_GROESTL)
 		SHA256((unsigned char*)sctx->job.coinbase, sctx->job.coinbase_size, (unsigned char*)merkle_root);
 	else
 		sha256d(merkle_root, sctx->job.coinbase, (int)sctx->job.coinbase_size);
@@ -785,9 +753,7 @@ static void stratum_gen_work(struct stratum_ctx *sctx, struct work *work)
 		free(xnonce2str);
 	}
 
-	if (opt_algo == ALGO_JACKPOT)
-		diff_to_target(work->target, sctx->job.diff / (65536.0 * opt_difficulty));
-	else if (opt_algo == ALGO_FUGUE256 || opt_algo == ALGO_GROESTL || opt_algo == ALGO_DMD_GR || opt_algo == ALGO_FRESH)
+	if (opt_algo == ALGO_FUGUE256 || opt_algo == ALGO_GROESTL)
 		diff_to_target(work->target, sctx->job.diff / (256.0 * opt_difficulty));
 	else
 		diff_to_target(work->target, sctx->job.diff / opt_difficulty);
@@ -803,7 +769,6 @@ static void *miner_thread(void *userdata)
 	unsigned char *scratchbuf = NULL;
 	char s[16];
 	int i;
-    static int rounds = 0;
 
 	memset(&work, 0, sizeof(work)); // prevent work from being used uninitialized
 
@@ -871,7 +836,7 @@ static void *miner_thread(void *userdata)
 			      - time(NULL);
 		max64 *= (int64_t)thr_hashrates[thr_id];
 		if (max64 <= 0)
-			max64 = (opt_algo == ALGO_JACKPOT) ? 0x1fffLL : 0xfffffLL;
+			max64 = 0xfffffLL;
 		if ((int64_t)work.data[19] + max64 > end_nonce)
 			max_nonce = end_nonce;
 		else
@@ -899,7 +864,6 @@ static void *miner_thread(void *userdata)
 			break;
 
 		case ALGO_GROESTL:
-		case ALGO_DMD_GR:
 			rc = scanhash_groestlcoin(thr_id, work.data, work.target,
 			                      max_nonce, &hashes_done);
 			break;
@@ -909,28 +873,6 @@ static void *miner_thread(void *userdata)
 			                      max_nonce, &hashes_done);
 			break;
 
-		case ALGO_JACKPOT:
-			rc = scanhash_jackpot(thr_id, work.data, work.target,
-			                      max_nonce, &hashes_done);
-			break;
-
-		case ALGO_QUARK:
-			rc = scanhash_quark(thr_id, work.data, work.target,
-			                      max_nonce, &hashes_done);
-			break;
-
-		case ALGO_ANIME:
-			rc = scanhash_anime(thr_id, work.data, work.target,
-			                      max_nonce, &hashes_done);
-			break;
-		case ALGO_QUBIT:
-			rc = scanhash_qubit(thr_id, work.data, work.target,
-			                      max_nonce, &hashes_done);
-			break;
-        case ALGO_FRESH:
-			rc = scanhash_fresh(thr_id, work.data, work.target,
-			                      max_nonce, &hashes_done);
-			break;
 		case ALGO_NIST5:
 			rc = scanhash_nist5(thr_id, work.data, work.target,
 			                      max_nonce, &hashes_done);
@@ -941,31 +883,10 @@ static void *miner_thread(void *userdata)
 			                      max_nonce, &hashes_done);
 			break;
 
-		case ALGO_X13:
-			rc = scanhash_x13(thr_id, work.data, work.target,
-			                      max_nonce, &hashes_done);
-			break;
-        case ALGO_X14:
-			rc = scanhash_x14(thr_id, work.data, work.target,
-			                      max_nonce, &hashes_done);
-			break;
-
-        case ALGO_X15:
-			rc = scanhash_x15(thr_id, work.data, work.target,
-			                      max_nonce, &hashes_done);
-			break;
-
-        case ALGO_WHIRLCOIN:
-			rc = scanhash_test(thr_id, work.data, work.target,
-			                      max_nonce, &hashes_done);
-			break;
 		default:
 			/* should never happen */
 			goto out;
 		}
-
-//        if (opt_benchmark)
-//            if (++rounds == 1) exit(0);
 
 		/* record scanhash elapsed time */
 		gettimeofday(&tv_end, NULL);
@@ -979,10 +900,8 @@ static void *miner_thread(void *userdata)
 		if (!opt_quiet) {
 			sprintf(s, thr_hashrates[thr_id] >= 1e6 ? "%.0f" : "%.2f",
 				1e-3 * thr_hashrates[thr_id]);
-			applog(LOG_INFO, "GPU #%d: %s, %s khash/s",
-				device_map[thr_id], device_name[thr_id], s);
-//			applog(LOG_INFO, "thread %d: %lu hashes, %s khash/s",
-//				thr_id, hashes_done, s);
+			applog(LOG_INFO, "thread %d: %lu hashes, %s khash/s",
+				thr_id, hashes_done, s);
 		}
 		if (opt_benchmark && thr_id == opt_n_threads - 1) {
 			double hashrate = 0.;
@@ -1516,7 +1435,7 @@ static void signal_handler(int sig)
 }
 #endif
 
-#define PROGRAM_VERSION "1.2"
+#define PROGRAM_VERSION "1.0"
 int main(int argc, char *argv[])
 {
 	struct thr_info *thr;
@@ -1545,8 +1464,6 @@ int main(int argc, char *argv[])
 
 	/* parse command line */
 	parse_cmdline(argc, argv);
-
-	cuda_devicenames();
 
 	if (!opt_benchmark && !rpc_url) {
 		fprintf(stderr, "%s: no URL supplied\n", argv[0]);

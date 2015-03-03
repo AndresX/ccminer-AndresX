@@ -162,12 +162,13 @@ extern "C" int scanhash_x11(int thr_id, uint32_t *pdata,
 {
 	const uint32_t first_nonce = pdata[19];
 
+	// TODO: entfernen für eine Release! Ist nur zum Testen!
 	if (opt_benchmark)
 		((uint32_t*)ptarget)[7] = 0x0000ff;
 
 	const uint32_t Htarg = ptarget[7];
 
-	const int throughput = 256*256*8;
+	const int throughput = 256*256; // 100;
 
 	static bool init[8] = {0,0,0,0,0,0,0,0};
 	if (!init[thr_id])
